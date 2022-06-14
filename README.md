@@ -11,7 +11,7 @@ bash bootstrap.sh
 ./shell
 ```
 
-### Instructions for the Coffea Casa
+### Instructions for Coffea Casa
 
 1. Log into https://coffea.casa/hub/login?next=%2Fhub%2F with your CERN account
 2. Go to the "Git" menu and select "Clone a repository" 
