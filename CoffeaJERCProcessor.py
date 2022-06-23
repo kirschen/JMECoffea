@@ -68,15 +68,10 @@ class Processor(processor.ProcessorABC):
 
         self._accumulator = processor.dict_accumulator({
             'ptresponse': hist.Hist("Counts", dataset_axis, jetpt_axis, jeteta_axis, ptresponse_axis),
-#             'corrected_ptresponse': hist.Hist("Counts", dataset_axis, jetpt_axis, jeteta_axis, ptresponse_axis),
-
             'jetmass': hist.Hist("Counts", dataset_axis, cats_axis, jetmass_axis),
-            
             'jetpt':     hist.Hist("Counts", dataset_axis, jetpt_axis),
             'jeteta':    hist.Hist("Counts", dataset_axis, jeteta_axis),
             'jetphi':    hist.Hist("Counts", dataset_axis, jetphi_axis),
-            
-            
             'cutflow': processor.defaultdict_accumulator(int),
             
         })
@@ -97,16 +92,14 @@ class Processor(processor.ProcessorABC):
         
         jec_inputs = {name: evaluator[name] for name in jec_stack_names}
         jec_stack = JECStack(jec_inputs)
+        
+        
         ### more possibilities are available if you send in more pieces of the JEC stack
         # mc2016_ak8_jxform = JECStack(["more", "names", "of", "JEC parts"])
         
         self.corrector = FactorizedJetCorrector(
             Summer20_UL18_MC_L1FastJet_AK4PFchs=evaluator['Summer20_UL18_MC_L1FastJet_AK4PFchs'],
         )
-#         uncertainties = JetCorrectionUncertainty(
-#             Summer20_UL18_MC_L1FastJet_AK4PFchs=evaluator['Summer20_UL18_MC_L1FastJet_AK4PFchs']
-#         )
-
 
         self.name_map = jec_stack.blank_name_map
         self.name_map['JetPt'] = 'pt'
@@ -134,49 +127,48 @@ class Processor(processor.ProcessorABC):
         output = self.accumulator.identity()
         
         dataset = events.metadata['dataset']
-     
- 
-        selectedEvents = events[
-            (ak.num(events.Jet) > 2)
-        ]
     
+        # Event Cuts
+        
+        
+        
+        # apply npv cuts
+        npvCut = (events.PV.npvsGood > 0)
+        pvzCut = (np.abs(events.PV.z) < 24)
+        rxyCut = (np.sqrt(events.PV.x*events.PV.x + events.PV.y*events.PV.y) < 2)
+        
+        selectedEvents = events[npvCut & pvzCut & rxyCut]
 
-        # change to selectedEvents
-        GenJets = events.GenJet[:,0:2]
-        jets = events.Jet 
         
         
+        # get GenJets and Jets
+        GenJets = selectedEvents.GenJet[:,0:2]
+        jets = selectedEvents.Jet
+        
+        
+        
+        # define variables needed for corrected jets
+        # https://coffeateam.github.io/coffea/notebooks/applying_corrections.html#Applying-energy-scale-transformations-to-Jets
         jets['pt_raw'] = (1 - jets['rawFactor']) * jets['pt']
         jets['mass_raw'] = (1 - jets['rawFactor']) * jets['mass']
         jets['pt_gen'] = ak.values_astype(ak.fill_none(jets.matched_gen.pt, 0), np.float32)
         jets['rho'] = ak.broadcast_arrays(events.fixedGridRhoFastjetAll, jets.pt)[0]
-
-
         events_cache = events.caches[0]
 
         corrected_jets = self.jet_factory.build(jets, lazy_cache=events_cache)
 
-
-#         print('JES UP pt ratio',corrected_jets.JES_jes.up.pt/corrected_jets.pt_raw)
-#         print('JES DOWN pt ratio',corrected_jets.JES_jes.down.pt/corrected_jets.pt_raw)
-       
         jetpt = jets.pt
         corrected_jetpt = corrected_jets.pt
-   
 
-        #jets = jets[~ak.is_none(jets.matched_gen)]
-        #jets = jets[~ak.is_none(jets.pt)]
-
-
+        # MC jet matching
         matchedJets = ak.cartesian([GenJets, corrected_jets])
-        
         deltaR = matchedJets.slot0.delta_r(matchedJets.slot1)
-        
         matchedJets = matchedJets[deltaR < 0.2]
-#         corrected_jets = corrected_jets[deltaR < 0.2]
-        
         matchedJets = matchedJets[ak.num(matchedJets) > 0]
 
+        
+        
+        
         jetpt = matchedJets.slot1.pt
         jeteta = matchedJets.slot1.eta
 
@@ -187,7 +179,6 @@ class Processor(processor.ProcessorABC):
         
         
         ptresponse = jetpt / matched_genjetpt
-#         corrected_ptresponse = corrected_jetpt / matched_genjetpt
         
         output['jetpt'].fill(dataset = dataset, 
                         pt = ak.flatten(matched_genjetpt))
