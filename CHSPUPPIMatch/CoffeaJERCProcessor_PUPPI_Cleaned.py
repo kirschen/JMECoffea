@@ -170,6 +170,69 @@ class Processor(processor.ProcessorABC):
 
         corrected_jets = self.jet_factory.build(jets, lazy_cache=events_cache)
 
+        #PUPPI
+        matchedJets = ak.cartesian([GenJets, corrected_jets])
+        deltaR = matchedJets.slot0.delta_r(matchedJets.slot1)
+        matchedJets = matchedJets[deltaR < 0.2]
+        matchedJets = matchedJets[ak.num(matchedJets) > 0]
+
+        rawjetpt = (1-matchedJets.slot1.rawFactor) * matchedJets.slot1.pt
+        jetpt = matchedJets.slot1.pt
+        jeteta = matchedJets.slot1.eta
+
+        matched_genjetpt = matchedJets.slot0.pt
+        matched_genjeteta = matchedJets.slot0.eta
+        
+        #ptresponse = jetpt / matched_genjetpt
+        ptresponse = rawjetpt / matched_genjetpt
+        corrected_ptresponse = jetpt / matched_genjetpt
+
+        #CHS
+        CHSmatchedJets = ak.cartesian([GenJets, CHSjets])
+        CHSdeltaR = CHSmatchedJets.slot0.delta_r(CHSmatchedJets.slot1)
+        CHSmatchedJets = CHSmatchedJets[CHSdeltaR < 0.2]
+        CHSmatchedJets = CHSmatchedJets[ak.num(CHSmatchedJets) > 0]
+
+        CHSrawjetpt = (1-CHSmatchedJets.slot1.rawFactor) * CHSmatchedJets.slot1.pt
+        CHSjetpt = CHSmatchedJets.slot1.pt
+        CHSjeteta = CHSmatchedJets.slot1.eta
+
+        CHSmatched_genjetpt = CHSmatchedJets.slot0.pt
+        CHSmatched_genjeteta = CHSmatchedJets.slot0.eta
+        
+        #ptresponse = jetpt / matched_genjetpt
+        CHSptresponse = CHSrawjetpt / CHSmatched_genjetpt
+        CHScorrected_ptresponse = CHSjetpt / CHSmatched_genjetpt
+
+        #MatchBoth at the same time
+        BothmatchedJets = ak.cartesian([GenJets, corrected_jets, CHSjets])
+        BothdeltaROne = BothmatchedJets.slot0.delta_r(BothmatchedJets.slot1)
+        BothmatchedJets = BothmatchedJets[BothdeltaROne < 0.2]
+        BothdeltaRTwo = BothmatchedJets.slot0.delta_r(BothmatchedJets.slot2)
+        BothmatchedJets = BothmatchedJets[BothdeltaRTwo < 0.2]
+        #Replace by s.th. like ... BothmatchedJets = BothmatchedJets[ak.all(BothdeltaROne < 0.2,  BothdeltaRTwo < 0.2)]
+        BothmatchedJets = BothmatchedJets[ak.num(BothmatchedJets) > 0]
+
+        BothPUPPIrawjetpt = (1-BothmatchedJets.slot1.rawFactor) * BothmatchedJets.slot1.pt
+        BothCHSrawjetpt = (1-BothmatchedJets.slot2.rawFactor) * BothmatchedJets.slot2.pt
+        BothPUPPIjetpt = BothmatchedJets.slot1.pt
+        BothPUPPIjeteta = BothmatchedJets.slot1.eta
+        BothCHSjetpt = BothmatchedJets.slot2.pt
+        BothCHSjeteta = BothmatchedJets.slot2.eta
+
+        Bothmatched_genjetpt = BothmatchedJets.slot0.pt
+        Bothmatched_genjeteta = BothmatchedJets.slot0.eta
+        
+        #ptresponse = jetpt / matched_genjetpt
+        BothPUPPIptresponse = BothPUPPIrawjetpt / Bothmatched_genjetpt
+        BothPUPPIcorrected_ptresponse = BothPUPPIjetpt / Bothmatched_genjetpt
+
+        BothCHSptresponse = BothCHSrawjetpt / Bothmatched_genjetpt
+        BothCHScorrected_ptresponse = BothCHSjetpt / Bothmatched_genjetpt
+
+        CHSPUPPIptresponse = BothCHSrawjetpt / BothPUPPIrawjetpt
+        CHSPUPPIcorrected_ptresponse = BothCHSjetpt / BothPUPPIjetpt
+        
 
         
         
